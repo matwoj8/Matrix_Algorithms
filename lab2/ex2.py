@@ -1,4 +1,4 @@
-from lab1.ex1 import *
+from ex1 import *
 import numpy as np
 
 
@@ -183,6 +183,113 @@ def gauss_rec(A, b, method, cnt = 0):
     return x, cnt
 
 
+def estimate_memory_rec(n, method):
+    """Szacuje zużycie pamięci dla rekurencyjnego mnożenia macierzy"""
+    if n <= 2:
+        return (3 * n * n * 8) / (1024 ** 2)  # A, B i wynik C
+    
+    if method == "Binet":
+        half = n // 2
+        # Binet: 8 mnożeń + 4 dodawania
+        memory = (n * n * 8 * 2) / (1024 ** 2)  # A i B
+        memory += 8 * estimate_memory_rec(half, method)  # 8 rekurencyjnych wywołań
+        memory += (4 * half * half * 8) / (1024 ** 2)  # wyniki pośrednie
+        return memory
+    
+    elif method == "Strassen":
+        half = n // 2
+        # Strassen: 7 mnożeń + 18 operacji na macierzach
+        memory = (n * n * 8 * 2) / (1024 ** 2)  # A i B
+        memory += 7 * estimate_memory_rec(half, method)  # 7 rekurencyjnych wywołań
+        memory += (18 * half * half * 8) / (1024 ** 2)  # macierze pomocnicze
+        return memory
+
+def estimate_memory_inv(n, method):
+    """Szacuje zużycie pamięci dla odwracania macierzy"""
+    if n <= 2:
+        return (n * n * 8 * 2) / (1024 ** 2)  # A i wynik
+    
+    half = n // 2
+    
+    if method == "Binet":
+        # Binet: więcej operacji mnożenia
+        memory = (n * n * 8) / (1024 ** 2)  # macierz wejściowa
+        memory += estimate_memory_inv(half, method)  # A_11_inv
+        memory += 3 * estimate_memory_rec(half, "Binet")  # 3 mnożenia w głównej części
+        memory += estimate_memory_inv(half, method)  # S_inv
+        memory += (6 * half * half * 8) / (1024 ** 2)  # macierze pomocnicze
+        return memory
+    
+    elif method == "Strassen":
+        # Strassen: mniej operacji mnożenia
+        memory = (n * n * 8) / (1024 ** 2)
+        memory += estimate_memory_inv(half, method)  # A_11_inv
+        memory += 3 * estimate_memory_rec(half, "Strassen")  # 3 mnożenia w głównej części
+        memory += estimate_memory_inv(half, method)  # S_inv
+        memory += (6 * half * half * 8) / (1024 ** 2)  # macierze pomocnicze
+        return memory
+
+def estimate_memory_LU(n, method):
+    """Szacuje zużycie pamięci dla faktoryzacji LU"""
+    if n <= 2:
+        return (3 * n * n * 8) / (1024 ** 2)  # A, L i U
+    
+    half = n // 2
+    
+    if method == "Binet":
+        memory = (n * n * 8) / (1024 ** 2)  # A
+        memory += estimate_memory_LU(half, method)  # LU A_11
+        memory += 2 * estimate_memory_inv(half, "Binet")  # odwrotności L_11 i U_11
+        memory += 3 * estimate_memory_rec(half, "Binet")  # 3 mnożenia
+        memory += estimate_memory_LU(half, method)  # LU S
+        memory += (4 * half * half * 8) / (1024 ** 2)  # macierze pomocnicze
+        return memory
+    
+    elif method == "Strassen":
+        memory = (n * n * 8) / (1024 ** 2)  # A
+        memory += estimate_memory_LU(half, method)  # LU A_11
+        memory += 2 * estimate_memory_inv(half, "Strassen")  # odwrotności L_11 i U_11
+        memory += 3 * estimate_memory_rec(half, "Strassen")  # 3 mnożenia
+        memory += estimate_memory_LU(half, method)  # LU S
+        memory += (4 * half * half * 8) / (1024 ** 2)  # macierze pomocnicze
+        return memory
+
+def estimate_memory_det(n, method):
+    """Szacuje zużycie pamięci dla wyznacznika"""
+    # Wyznacznik wykorzystuje LU
+    return estimate_memory_LU(n, method)
+
+def estimate_memory_gauss_rec(n, method):
+    """Szacuje zużycie pamięci dla rekurencyjnej eliminacji Gaussa"""
+    if n <= 2:
+        return ((n * n + n) * 8 * 2) / (1024 ** 2)  # A, b i wynik x
+    
+    half = n // 2
+    
+    if method == "Binet":
+        memory = ((n * n + n) * 8) / (1024 ** 2)  # A i b
+        memory += estimate_memory_LU(half, "Binet")  # LU A_11
+        memory += 2 * estimate_memory_inv(half, "Binet")  # L_11_inv i U_11_inv
+        memory += 3 * estimate_memory_rec(half, "Binet")  # 3 mnożenia dla S
+        memory += estimate_memory_LU(half, "Binet")  # LU S
+        memory += 2 * estimate_memory_inv(half, "Binet")  # L_S_inv
+        memory += 4 * estimate_memory_rec(half, "Binet")  # 4 mnożenia dla RHS
+        memory += 2 * estimate_memory_gauss_rec(half, "Binet")  # 2 rekurencyjne wywołania
+        memory += (8 * half * half * 8) / (1024 ** 2)  # macierze pomocnicze
+        return memory
+    
+    elif method == "Strassen":
+        memory = ((n * n + n) * 8) / (1024 ** 2)  # A i b
+        memory += estimate_memory_LU(half, "Strassen")  # LU A_11
+        memory += 2 * estimate_memory_inv(half, "Strassen")  # L_11_inv i U_11_inv
+        memory += 3 * estimate_memory_rec(half, "Strassen")  # 3 mnożenia dla S
+        memory += estimate_memory_LU(half, "Strassen")  # LU S
+        memory += 2 * estimate_memory_inv(half, "Strassen")  # L_S_inv
+        memory += 4 * estimate_memory_rec(half, "Strassen")  # 4 mnożenia dla RHS
+        memory += 2 * estimate_memory_gauss_rec(half, "Strassen")  # 2 rekurencyjne wywołania
+        memory += (8 * half * half * 8) / (1024 ** 2)  # macierze pomocnicze
+        return memory
+
 def plot_all_inv(max_n=183, step=2):
     ns = range(3, max_n, step)
     times_binet, times_strass = [], []
@@ -196,13 +303,13 @@ def plot_all_inv(max_n=183, step=2):
         _, c1 = inv(A, "Binet")
         times_binet.append(time.time() - start)
         counts_binet.append(c1)
-        mem_binet.append((A.nbytes) / 1024**2)
+        mem_binet.append(estimate_memory_inv(n, "Binet"))
 
         start = time.time()
         _, c2 = inv(A, "Strassen")
         times_strass.append(time.time() - start)
         counts_strass.append(c2)
-        mem_strass.append((A.nbytes) / 1024**2)
+        mem_strass.append(estimate_memory_inv(n, "Strassen"))
 
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
@@ -244,13 +351,13 @@ def plot_all_gauss_rec(max_n=183, step=2):
         _, c1 = gauss_rec(A, b, "Binet")
         times_binet.append(time.time() - start)
         counts_binet.append(c1)
-        mem_binet.append((A.nbytes + b.nbytes) / 1024**2)
+        mem_binet.append(estimate_memory_gauss_rec(n, "Binet"))
 
         start = time.time()
         _, c2 = gauss_rec(A, b, "Strassen")
         times_strass.append(time.time() - start)
         counts_strass.append(c2)
-        mem_strass.append((A.nbytes + b.nbytes) / 1024**2)
+        mem_strass.append(estimate_memory_gauss_rec(n, "Strassen"))
 
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
@@ -291,13 +398,13 @@ def plot_all_LU(max_n=183, step=2):
         _, _, c1 = LU(A, "Binet")
         times_binet.append(time.time() - start)
         counts_binet.append(c1)
-        mem_binet.append((A.nbytes) / 1024**2)
+        mem_binet.append(estimate_memory_LU(n, "Binet"))
 
         start = time.time()
         _, _, c2 = LU(A, "Strassen")
         times_strass.append(time.time() - start)
         counts_strass.append(c2)
-        mem_strass.append((A.nbytes) / 1024**2)
+        mem_strass.append(estimate_memory_LU(n, "Strassen"))
 
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
@@ -324,6 +431,55 @@ def plot_all_LU(max_n=183, step=2):
 
     plt.tight_layout()
     plt.show()
-plot_all_inv()
-plot_all_gauss_rec()
-plot_all_LU()
+
+def plot_all_det(max_n=183, step=2):
+    ns = range(3, max_n, step)
+    times_binet, times_strass = [], []
+    counts_binet, counts_strass = [], []
+    mem_binet, mem_strass = [], []
+
+    for n in ns:
+        A = np.random.rand(n, n)
+
+        start = time.time()
+        _, c1 = det_(A, "Binet")
+        times_binet.append(time.time() - start)
+        counts_binet.append(c1)
+        mem_binet.append(estimate_memory_det(n, "Binet"))
+
+        start = time.time()
+        _, c2 = det_(A, "Strassen")
+        times_strass.append(time.time() - start)
+        counts_strass.append(c2)
+        mem_strass.append(estimate_memory_det(n, "Strassen"))
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+
+    axes[0].plot(ns, times_binet, label="Binet")
+    axes[0].plot(ns, times_strass, label="Strassen")
+    axes[0].set_xlabel("Rozmiar n")
+    axes[0].set_ylabel("Czas [s]")
+    axes[0].set_title("Porównanie czasu działania")
+    axes[0].legend()
+
+    axes[1].plot(ns, counts_binet, label="Binet")
+    axes[1].plot(ns, counts_strass, label="Strassen")
+    axes[1].set_xlabel("Rozmiar n")
+    axes[1].set_ylabel("Liczba operacji (count)")
+    axes[1].set_title("Porównanie liczby operacji")
+    axes[1].legend()
+
+    axes[2].plot(ns, mem_binet, label="Binet")
+    axes[2].plot(ns, mem_strass, label="Strassen")
+    axes[2].set_xlabel("Rozmiar n")
+    axes[2].set_ylabel("Zużycie pamięci [MB]")
+    axes[2].set_title("Porównanie zużycia pamięci")
+    axes[2].legend()
+
+    plt.tight_layout()
+    plt.show()
+
+plot_all_inv(max_n=70)
+plot_all_gauss_rec(max_n=70)
+plot_all_LU(max_n=70)
+plot_all_det(max_n=70)
