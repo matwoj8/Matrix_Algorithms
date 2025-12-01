@@ -184,7 +184,6 @@ def gauss_rec(A, b, method, cnt = 0):
 
 
 def estimate_memory_rec(n, method):
-    """Szacuje zużycie pamięci dla rekurencyjnego mnożenia macierzy"""
     if n <= 2:
         return (3 * n * n * 8) / (1024 ** 2)  # A, B i wynik C
     
@@ -205,7 +204,6 @@ def estimate_memory_rec(n, method):
         return memory
 
 def estimate_memory_inv(n, method):
-    """Szacuje zużycie pamięci dla odwracania macierzy"""
     if n <= 2:
         return (n * n * 8 * 2) / (1024 ** 2)  # A i wynik
     
@@ -230,7 +228,6 @@ def estimate_memory_inv(n, method):
         return memory
 
 def estimate_memory_LU(n, method):
-    """Szacuje zużycie pamięci dla faktoryzacji LU"""
     if n <= 2:
         return (3 * n * n * 8) / (1024 ** 2)  # A, L i U
     
@@ -255,12 +252,10 @@ def estimate_memory_LU(n, method):
         return memory
 
 def estimate_memory_det(n, method):
-    """Szacuje zużycie pamięci dla wyznacznika"""
     # Wyznacznik wykorzystuje LU
     return estimate_memory_LU(n, method)
 
 def estimate_memory_gauss_rec(n, method):
-    """Szacuje zużycie pamięci dla rekurencyjnej eliminacji Gaussa"""
     if n <= 2:
         return ((n * n + n) * 8 * 2) / (1024 ** 2)  # A, b i wynik x
     
@@ -479,7 +474,7 @@ def plot_all_det(max_n=183, step=2):
     plt.tight_layout()
     plt.show()
 
-plot_all_inv(max_n=70)
-plot_all_gauss_rec(max_n=70)
-plot_all_LU(max_n=70)
-plot_all_det(max_n=70)
+plot_all_inv(max_n=150)
+plot_all_gauss_rec(max_n=150)
+plot_all_LU(max_n=150)
+plot_all_det(max_n=150)
