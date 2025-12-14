@@ -1,6 +1,7 @@
 import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 from typing import Tuple
 import os
 
@@ -228,6 +229,207 @@ def create_compression_visualization(R_root, G_root, B_root, method_name, origin
     
     print(f"Zapisano wizualizację dla metody: {method_name}")
 
+def draw_compression_tree(node, ax, max_depth=None, current_depth=0):
+    """
+    Rysuje wizualizację drzewa kompresji H-macierzy.
+    
+    Args:
+        node: korzeń drzewa
+        ax: osie matplotlib do rysowania
+        max_depth: maksymalna głębokość do narysowania (None = bez ograniczeń)
+        current_depth: aktualna głębokość (używana rekurencyjnie)
+    """
+    if max_depth is not None and current_depth > max_depth:
+        return
+    
+    # Oblicz wymiary bloku
+    x = node.s_min
+    y = node.t_min
+    width = node.s_max - node.s_min + 1
+    height = node.t_max - node.t_min + 1
+    
+    # Rysuj prostokąt reprezentujący blok
+    if node.sons:
+        # Jeśli ma dzieci - to blok podzielony (nie skompresowany)
+        rect = Rectangle((x, y), width, height, linewidth=1, 
+                        edgecolor='blue', facecolor='none', alpha=0.7)
+        ax.add_patch(rect)
+        
+        # Rekurencyjnie rysuj dzieci
+        for son in node.sons:
+            draw_compression_tree(son, ax, max_depth, current_depth + 1)
+    else:
+        # Jeśli nie ma dzieci - to blok liścia (skompresowany lub zerowy)
+        if node.rank > 0:
+            # Blok skompresowany z rank > 0
+            color = 'green' if node.rank <= 4 else 'orange'
+            rect = Rectangle((x, y), width, height, linewidth=1,
+                            edgecolor='darkgreen', facecolor=color, alpha=0.5)
+            ax.add_patch(rect)
+            
+            # Dodaj tekst z rankiem
+            # ax.text(x + width/2, y + height/2, f'rank={node.rank}', 
+            #        ha='center', va='center', fontsize=8, fontweight='bold')
+        else:
+            # Blok zerowy
+            rect = Rectangle((x, y), width, height, linewidth=1,
+                            edgecolor='red', facecolor='red', alpha=0.3)
+            ax.add_patch(rect)
+            
+            # Dodaj tekst "zero"
+            # ax.text(x + width/2, y + height/2, 'zero', 
+            #        ha='center', va='center', fontsize=8, fontweight='bold')
+
+def visualize_compression_structure(R_root, G_root, B_root, method_name, original_size):
+    """
+    Tworzy wizualizację struktury kompresji dla wszystkich kanałów.
+    
+    Args:
+        R_root, G_root, B_root: korzenie drzew dla każdego kanału
+        method_name: nazwa metody kompresji
+        original_size: krotka (wysokość, szerokość)
+    """
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+    channels = ['R (Czerwony)', 'G (Zielony)', 'B (Niebieski)']
+    roots = [R_root, G_root, B_root]
+    
+    for idx, (ax, channel, root) in enumerate(zip(axes, channels, roots)):
+        # Rysuj strukturę drzewa
+        draw_compression_tree(root, ax, max_depth=5)
+        
+        # Konfiguruj wykres
+        ax.set_xlim(0, original_size[1])
+        ax.set_ylim(0, original_size[0])
+        ax.set_aspect('equal')
+        ax.invert_yaxis()  # Oś Y rosnąca w dół (jak w obrazach)
+        ax.set_title(f'Struktura kompresji - Kanał {channel}\nMetoda: {method_name}')
+        ax.set_xlabel('Szerokość (piksele)')
+        ax.set_ylabel('Wysokość (piksele)')
+        ax.grid(True, alpha=0.3, linestyle='--')
+    
+    # Dodaj legendę
+    from matplotlib.patches import Patch
+    legend_elements = [
+        Patch(facecolor='none', edgecolor='blue', alpha=0.7, label='Blok podzielony'),
+        Patch(facecolor='green', edgecolor='darkgreen', alpha=0.5, label='Blok rank≤4'),
+        Patch(facecolor='orange', edgecolor='darkgreen', alpha=0.5, label='Blok rank>4'),
+        Patch(facecolor='red', edgecolor='red', alpha=0.3, label='Blok zerowy')
+    ]
+    
+    fig.legend(handles=legend_elements, loc='lower center', ncol=4, 
+               bbox_to_anchor=(0.5, -0.05))
+    
+    plt.tight_layout()
+    plt.savefig(f'compression_structure_{method_name}.png', dpi=300, 
+                bbox_inches='tight')
+    plt.close(fig)
+    print(f"Zapisano wizualizację struktury kompresji: 'compression_structure_{method_name}.png'")
+
+def visualize_single_channel_compression(root, channel_name, method_name, original_size, max_depth=None):
+    """
+    Tworzy szczegółową wizualizację struktury kompresji dla pojedynczego kanału.
+    
+    Args:
+        root: korzeń drzewa dla kanału
+        channel_name: nazwa kanału
+        method_name: nazwa metody kompresji
+        original_size: krotka (wysokość, szerokość)
+        max_depth: maksymalna głębokość do wyświetlenia
+    """
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
+    
+    # Pierwszy wykres: pełna struktura
+    draw_compression_tree(root, ax1)
+    ax1.set_xlim(0, original_size[1])
+    ax1.set_ylim(0, original_size[0])
+    ax1.set_aspect('equal')
+    ax1.invert_yaxis()
+    ax1.set_title(f'Pełna struktura kompresji\nKanał {channel_name}, Metoda: {method_name}')
+    ax1.set_xlabel('Szerokość (piksele)')
+    ax1.set_ylabel('Wysokość (piksele)')
+    ax1.grid(True, alpha=0.2, linestyle='--')
+    
+    # Drugi wykres: ograniczona głębokość
+    if max_depth is not None:
+        draw_compression_tree(root, ax2, max_depth=max_depth)
+        ax2.set_xlim(0, original_size[1])
+        ax2.set_ylim(0, original_size[0])
+        ax2.set_aspect('equal')
+        ax2.invert_yaxis()
+        ax2.set_title(f'Struktura kompresji (głębokość ≤ {max_depth})\nKanał {channel_name}, Metoda: {method_name}')
+        ax2.set_xlabel('Szerokość (piksele)')
+        ax2.set_ylabel('Wysokość (piksele)')
+        ax2.grid(True, alpha=0.2, linestyle='--')
+    else:
+        ax2.axis('off')
+        ax2.text(0.5, 0.5, 'Ograniczenie głębokości\nnie zastosowane', 
+                ha='center', va='center', fontsize=12, 
+                transform=ax2.transAxes)
+    
+    # Dodaj statystyki
+    stats_text = collect_tree_statistics(root)
+    fig.text(0.02, 0.02, stats_text, fontsize=9, 
+             verticalalignment='bottom',
+             bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8))
+    
+    plt.tight_layout()
+    plt.savefig(f'compression_structure_{method_name}_{channel_name}.png', 
+                dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    print(f"Zapisano szczegółową wizualizację: 'compression_structure_{method_name}_{channel_name}.png'")
+
+def collect_tree_statistics(node, stats=None):
+    """
+    Zbiera statystyki drzewa kompresji.
+    
+    Returns:
+        string ze statystykami
+    """
+    if stats is None:
+        stats = {
+            'total_blocks': 0,
+            'leaf_blocks': 0,
+            'divided_blocks': 0,
+            'zero_blocks': 0,
+            'compressed_blocks': 0,
+            'max_rank': 0,
+            'min_block_size': float('inf'),
+            'max_block_size': 0
+        }
+    
+    stats['total_blocks'] += 1
+    
+    # Oblicz rozmiar bloku
+    block_size = (node.t_max - node.t_min + 1) * (node.s_max - node.s_min + 1)
+    stats['min_block_size'] = min(stats['min_block_size'], block_size)
+    stats['max_block_size'] = max(stats['max_block_size'], block_size)
+    
+    if node.sons:
+        stats['divided_blocks'] += 1
+        for son in node.sons:
+            collect_tree_statistics(son, stats)
+    else:
+        stats['leaf_blocks'] += 1
+        if node.rank == 0:
+            stats['zero_blocks'] += 1
+        else:
+            stats['compressed_blocks'] += 1
+            stats['max_rank'] = max(stats['max_rank'], node.rank)
+    
+    if stats == stats:  # Sprawdzenie czy to korzeń
+        stats_text = f"""
+        STATYSTYKI STRUKTURY KOMPRESJI:
+        - Całkowita liczba bloków: {stats['total_blocks']}
+        - Bloki liście: {stats['leaf_blocks']}
+        - Bloki podzielone: {stats['divided_blocks']}
+        - Bloki skompresowane: {stats['compressed_blocks']}
+        - Bloki zerowe: {stats['zero_blocks']}
+        - Maksymalny rank: {stats['max_rank']}
+        - Minimalny rozmiar bloku: {stats['min_block_size']} pikseli
+        - Maksymalny rozmiar bloku: {stats['max_block_size']} pikseli
+        """
+        return stats_text
+
 def main():
     # Wczytaj obraz
     print("Wczytywanie obrazu...")
@@ -260,11 +462,9 @@ def main():
 
     # Metody kompresji - 6 wariantów
     methods = [
-        
-        # kombinacja
-        ('r1_delta_sigma1', 1, sigma_R[0]),  # r = 1, delta = sigma1
-        ('r1_delta_sigma2k', 1, sigma_R[2**k - 1]),  # r = 1, delta = sigma(2^k)
-        ('r1_delta_sigma2k2', 1, sigma_R[2**(k-1) - 1]),  # r = 1, delta = sigma(2^k/2)
+        ('r8_delta_sigma1', 8, sigma_R[0]),  # r = 1, delta = sigma1
+        ('r8_delta_sigma2k', 8, sigma_R[2**k - 1]),  # r = 1, delta = sigma(2^k)
+        ('r8_delta_sigma2k2', 8, sigma_R[2**(k-1) - 1]),  # r = 1, delta = sigma(2^k/2)
         ('r4_delta_sigma1', 4, sigma_R[0]),  # r = 4, delta = sigma1
         ('r4_delta_sigma2k', 4, sigma_R[2**k - 1]),  # r = 4, delta = sigma(2^k)
         ('r4_delta_sigma2k2', 4, sigma_R[2**(k-1) - 1]),  # r = 4, delta = sigma(2^k/2)
@@ -291,6 +491,13 @@ def main():
 
         # Odtworzenie i zapisanie wyników
         create_compression_visualization(R_root, G_root, B_root, method_name, (N, M))
+        
+        # Stwórz wizualizację struktury kompresji
+        print("Tworzenie wizualizacji struktury kompresji...")
+        visualize_compression_structure(R_root, G_root, B_root, method_name, (N, M))
+        
+        # Stwórz szczegółową wizualizację dla kanału R
+        visualize_single_channel_compression(R_root, 'R', method_name, (N, M), max_depth=4)
 
     print(f"\n{'='*50}")
     print("WSZYSTKIE METODY KOMPRESJI ZOSTAŁY WYKONANE!")
@@ -299,6 +506,8 @@ def main():
     print("- original_R.png, original_G.png, original_B.png - oryginalne kanały")
     print("- original_RGB.png - oryginalny obraz")
     print("- Dla każdej metody: compressed_[nazwa]_R/G/B/RGB.png - skompresowane wersje")
+    print("- Dla każdej metody: compression_structure_[nazwa].png - wizualizacja struktury")
+    print("- Dla każdej metody: compression_structure_[nazwa]_R.png - szczegółowa wizualizacja kanału R")
 
 if __name__ == '__main__':
     main()
